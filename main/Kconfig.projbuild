@@ -23,9 +23,10 @@ config AP_PASSWORD
 config CAM_XCLK_MHZ
     int "OV7670 XCLK (MHz)"
     range 5 20
-    default 10
+    default 20
     help
-        10 MHz on dinh hon voi day jump. Co the tang len 20 neu day ngan.
+        20 MHz + CLKRC=1: do tren board khoang 12-14 fps (gioi han boi ma hoa JPEG).
+        Giam xuong 10 neu day jump dai va anh bi loi khung.
 
 config CAM_CLKRC
     int "OV7670 CLKRC prescaler (FPS cam bien = max / (gia tri + 1))"
@@ -35,6 +36,9 @@ config CAM_CLKRC
 config CAM_JPEG_QUALITY
     int "JPEG quality stream (5..63, so nho = chat luong cao)"
     range 5 63
-    default 12
+    default 25
+    help
+        25 tuong duong quality 60% cua frame2jpg, giong firmware Arduino da thu.
+        Khung nho hon nen gui qua Wi-Fi nhanh hon.
 
 endmenu

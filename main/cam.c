@@ -12,6 +12,9 @@
 #include "img_converters.h"
 #include "sdkconfig.h"
 #include "cam.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+/* #define CAM_DIAG_DUMP 1  -> luc khoi dong in 1 khung RGB565 tho qua UART (base64) de kiem tra nhieu anh */
 
 static const char *TAG = "cam";
 
@@ -182,6 +185,36 @@ esp_err_t camera_web_start(void)
 {
     esp_err_t err = camera_init();
     if (err != ESP_OK) return err;
+#ifdef CAM_DIAG_DUMP   /* chan doan: in 1 khung RGB565 qua UART dang base64, giua DIAG_BEGIN/DIAG_END */
+    {
+        static const char b64[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+        vTaskDelay(pdMS_TO_TICKS(1500));
+        camera_fb_t *fb = NULL;
+        int bad = 0;
+        for (int i = 0; i < 20; i++) {          /* bo 20 khung dau cho AEC/AWB on dinh, dem khung loi */
+            fb = esp_camera_fb_get();
+            if (!fb) { bad++; continue; }
+            if (i < 19) { esp_camera_fb_return(fb); fb = NULL; }
+        }
+        if (fb) {
+            esp_log_level_set("*", ESP_LOG_NONE);
+            printf("\nDIAG_BEGIN %d %d %d bad=%d\n", fb->width, fb->height, (int)fb->len, bad);
+            char line[77];
+            int k = 0;
+            for (size_t i = 0; i < fb->len; i += 3) {
+                uint32_t v = fb->buf[i] << 16 | (i + 1 < fb->len ? fb->buf[i + 1] << 8 : 0) | (i + 2 < fb->len ? fb->buf[i + 2] : 0);
+                line[k++] = b64[v >> 18 & 63]; line[k++] = b64[v >> 12 & 63];
+                line[k++] = i + 1 < fb->len ? b64[v >> 6 & 63] : '=';
+                line[k++] = i + 2 < fb->len ? b64[v & 63] : '=';
+                if (k == 76) { line[k] = 0; puts(line); k = 0; if ((i & 0xFFF) < 3) vTaskDelay(1); }
+            }
+            if (k) { line[k] = 0; puts(line); }
+            printf("DIAG_END\n");
+            esp_log_level_set("*", ESP_LOG_INFO);
+            esp_camera_fb_return(fb);
+        }
+    }
+#endif
 
     /* Server rieng cong 81: stream chay vo han, khong chan trang chinh / /run o cong 80 */
     httpd_config_t cfg = HTTPD_DEFAULT_CONFIG();

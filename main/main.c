@@ -176,4 +176,24 @@ void app_main(void)
     httpd_register_uri_handler(h, &(httpd_uri_t){.uri = "/run", .method = HTTP_POST, .handler = run_post});
 
     if (camera_web_start() != ESP_OK) ESP_LOGW(TAG, "Khong co camera -> web chi dung anh tai len");
+
+    /* Tu kiem tra luc khoi dong: do thoi gian detect/intent va RAM con trong sau khi khoi tao xong */
+    static det_t bench[MAX_DETS];
+    for (int i = 0; i < IMG_BYTES; i++) s_body[i] = (uint8_t)(i * 7);   /* anh mau co nhieu muc xam */
+    for (int run = 1; run <= 3; run++) {
+        int64_t t0 = esp_timer_get_time();
+        int n = infer_detect(s_body, bench, MAX_DETS);
+        ESP_LOGI(TAG, "SELFTEST detect lan %d: %d ms, %d box", run, (int)((esp_timer_get_time() - t0) / 1000), n);
+        vTaskDelay(pdMS_TO_TICKS(50));   /* cho task IDLE chay, tranh canh bao watchdog */
+    }
+    char q[] = "co bao nhieu coc trong anh";
+    int64_t t0 = esp_timer_get_time();
+    int it = infer_intent(q);
+    ESP_LOGI(TAG, "SELFTEST intent: %d us, intent=%d", (int)(esp_timer_get_time() - t0), it);
+    ESP_LOGI(TAG, "SELFTEST heap: internal free %u KB (lon nhat %u KB), PSRAM free %u KB (lon nhat %u KB), min free internal %u KB",
+             (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL) / 1024,
+             (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL) / 1024,
+             (unsigned)heap_caps_get_free_size(MALLOC_CAP_SPIRAM) / 1024,
+             (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM) / 1024,
+             (unsigned)heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL) / 1024);
 }
