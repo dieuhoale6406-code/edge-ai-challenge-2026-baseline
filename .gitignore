@@ -6,3 +6,6 @@ sdkconfig.old
 __pycache__/
 .ipynb_checkpoints/
 .vscode/
+qualifiers_ref/
+.ov7670
+tools
